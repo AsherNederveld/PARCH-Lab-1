@@ -1,8 +1,30 @@
 // row major
-void mm(double *result, double *a, double *b, int dim_size) {
+void mm(double *result, double *a, double *b, int dim_size, int world_size, int world_rank, int shift_it) {
   //TODO:
+  for(j = 0; j < world_size; j++){//for each shift
+    for( k = 0; k < dim_size/world_size; k++){//for each row we own
+      for( l = 0; l < dim_size/world_size; l++){//for each row we own
+        for(i = 0; i < dim_size; i ++){//for each value in the row
+          result[j+k] += a[k*dim_size+i] * b[i+l*dim_size];
+        }
+      }
+    }
+    //SHIFT
+    
+    for(int total_iter = 0; total_iter < dim_size/world_size; total_iter){
+      for (current_row = 0; current_row < dim_size/world_size; current_row++){
+        for(current_col = 0; current_col < dim_size/world_size; current_col++){
+          for(i = 0; i < dim_size; i ++){//for each value in the row
+            result[current_row * dim_size + current_col * dim_size/world_size] += a[current_row * dim_size + i] * b[i + current_col * dim_size]
+        }
+      }
+    }
+    
+    }
   
-}
+
+
+  }
 
 void print_matrix(double *result, int dim_size) {
   int x, y;
@@ -21,10 +43,22 @@ int main(int argc, char *argv[]) {
   int i;
   int num_arg_matrices;
 
+
   if (argc != 4) {
     printf("usage: debug_perf test_set matrix_dimension_size\n");
     exit(1);
   }
+
+  MPI_Init(&argc, &argv);
+  int world_size;
+  int world_rank;
+  int name_len;
+  char processor_name[MPI_MAX_PROCESSOR_NAME];
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size); 
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank); 
+  MPI_Get_processor_name(processor_name, &name_len); 
+
+
   int debug_perf = atoi(argv[1]);
   int test_set = atoi(argv[2]);
   matrix_dimension_size = atoi(argv[3]);
@@ -33,10 +67,24 @@ int main(int argc, char *argv[]) {
   // allocate arrays
   r = (double **)my_malloc(sizeof(double *) * num_arg_matrices);
   result = (double **)my_malloc(sizeof(double *) * 2);
-  result[0] = (double *)my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size);
-  result[1] = (double *)my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size);
+  result[0] = (double *)my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size / world_size);
+  result[1] = (double *)my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size / world_size);
 
-  // get sub matrices
+
+  //TODO:
+
+  /*
+  double *gen_sub_matrix(int pid,        // the process id of the job calling.  This should be a number between 0 and num processes - 1
+		       int test_set,   // the test set command line argument
+		       int matrix_num, // the matrix number [0, num_arg_matrices - 1] 
+		       double *result, // a pointer to storage for the flattened array of the requested sub matrix
+		       int x_lo,       // the starting x value of the requested sub matrix
+		       int x_hi,       // the ending x value of the requested sub matrix
+		       int x_stride,   // the stride in the x dimension
+		       int y_lo,       // the starting y value of the requested sub matrix
+		       int y_hi,       // the ending y value of the requested sub matrix
+		       int y_stride,   // the stride in the y dimension
+		       int row_major_p)// whether the returned sub matrix is in row_major or column_major order
   for (i = 0; i < num_arg_matrices; ++i) {
     r[i] = (double *)my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size);
     if (gen_sub_matrix(0, test_set, i, r[i], 0, matrix_dimension_size - 1, 1, 0, matrix_dimension_size - 1, 1, 1) == NULL) {
@@ -45,9 +93,59 @@ int main(int argc, char *argv[]) {
     }
   }  
 
+{
+  */
+  // get sub matrices
+
+
+  for (i = 0; i < num_arg_matrices; ++i) {
+    r[i] = (double *)my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size/world_size);
+    if(i == 0){
+      if (gen_sub_matrix(world_rank, test_set, i, r[i], 0, matrix_dimension_size - 1, 1, world_rank, world_rank, world_size, 0) == NULL) {
+      printf("inconsistency in gen_sub_matrix\n");
+      exit(1);
+    }
+    else{
+      if (gen_sub_matrix(world_rank, test_set, i, r[i], world_rank, world_rank, world_size, 0, matrix_dimension_size - 1, 1, 1) == NULL) {
+        printf("inconsistency in gen_sub_matrix\n");
+        exit(1);
+      }
+    }
+    
+  }  
+
+
+
+
+  
+
+//SEND
+//SEND
+//SEND
+//IREC1
+//IREC2
+//IREC3
+/*
+n = 0
+while(n<3)
+if MPI_TEST(IREC1){
+  acc()
+  n++
+}
+if MPI_TEST(IREC3){
+  acc()
+  n++
+}
+if MPI_TEST(IREC2){
+  acc()
+  n++
+}
+
+*/
+
   // perform matrix multiplies
   int n = 0;
-
+   
   mm(result[0], r[0], r[1], matrix_dimension_size);
   for (i = 2; i < num_arg_matrices; ++i) {
     mm(result[n ^ 0x1], result[n], r[i], matrix_dimension_size);
@@ -70,5 +168,7 @@ int main(int argc, char *argv[]) {
     }
     printf("%f\n", sum);
   }
+
+MPI_Finalize();
 }
 
