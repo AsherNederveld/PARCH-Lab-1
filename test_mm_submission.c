@@ -1,24 +1,16 @@
 // row major
-void mm(double *result, double *a, double *b, int dim_size, int world_size, int world_rank, int shift_it) {
-  //TODO:
-  for(j = 0; j < world_size; j++){//for each shift
-    for( k = 0; k < dim_size/world_size; k++){//for each row we own
-      for( l = 0; l < dim_size/world_size; l++){//for each row we own
-        for(i = 0; i < dim_size; i ++){//for each value in the row
-          result[j+k] += a[k*dim_size+i] * b[i+l*dim_size];
-        }
-      }
-    }
-    //SHIFT
-    
+void mm(double *result, double *a, double *b, int dim_size, int world_size, int world_rank) {
+  //TODO:    
+  double* recv_buffer = (double*) my_malloc(sizeof(double) * dim_size/world_size * dim_size);
     for(int total_iter = 0; total_iter < dim_size/world_size; total_iter){
       for (current_row = 0; current_row < dim_size/world_size; current_row++){
         for(current_col = 0; current_col < dim_size/world_size; current_col++){
           for(i = 0; i < dim_size; i ++){//for each value in the row
-            result[current_row * dim_size + current_col * dim_size/world_size] += a[current_row * dim_size + i] * b[i + current_col * dim_size]
+            result[current_row * dim_size + current_col * dim_size/world_size] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
+          }
         }
       }
-    }
+    send
     
     }
   
@@ -114,34 +106,6 @@ int main(int argc, char *argv[]) {
     
   }  
 
-
-
-
-  
-
-//SEND
-//SEND
-//SEND
-//IREC1
-//IREC2
-//IREC3
-/*
-n = 0
-while(n<3)
-if MPI_TEST(IREC1){
-  acc()
-  n++
-}
-if MPI_TEST(IREC3){
-  acc()
-  n++
-}
-if MPI_TEST(IREC2){
-  acc()
-  n++
-}
-
-*/
 
   // perform matrix multiplies
   int n = 0;
