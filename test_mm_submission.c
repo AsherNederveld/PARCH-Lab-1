@@ -10,7 +10,11 @@ void mm(double *result, double *a, double *b, int dim_size, int world_size, int 
           }
         }
       }
-    send
+    recv_loc = world_rank == 0 ? world_size - 1 : world_rank - 1;
+    send_loc = (world_rank + 1) % world_size;
+    int MPI_Sendrecv_replace(b, dim_size/world_size * dim_size, MPI_DOUBLE, send_loc,
+                       recv_loc, int sendtag, int source, int recvtag,
+                       MPI_Comm comm, MPI_Status *status);
     
     }
   
