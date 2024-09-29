@@ -6,7 +6,7 @@ void mm(double *result, double *a, double *b, int dim_size, int world_size, int 
       for (current_row = 0; current_row < dim_size/world_size; current_row++){
         for(current_col = 0; current_col < dim_size/world_size; current_col++){
           for(i = 0; i < dim_size; i ++){//for each value in the row
-            result[current_row * dim_size + current_col * dim_size/world_size] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
+            result[current_row * dim_size + (current_col + total_iter) * dim_size/world_size] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
           }
         }
       }
