@@ -10,7 +10,8 @@ run_debug:
 	
 
 run_performance:
-	./test_mm 50 0 800
+	ibrun -n 256 ./test_mm 1 0 8
 
 clean:
 	rm *~; rm *.exe
+
