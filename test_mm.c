@@ -5,7 +5,7 @@
 #include <mpi.h>
 
 void print2D(double* a, int dim_size, int world_size){
-  printf("Begin Dump: \n");
+  // printf("Begin Dump: \n");
   for(int i = 0; i < dim_size * dim_size / world_size; i ++){
     printf("%f, ", a[i]);
   }
@@ -16,18 +16,16 @@ void print2D(double* a, int dim_size, int world_size){
 void mm(double *result, double *a, double *b, int dim_size, int world_size, int world_rank, int debug_perf) {
   //TODO:    
   // double* recv_buffer = (double*) my_malloc(sizeof(double) * dim_size/world_size * dim_size);
-    print2D(a, dim_size, world_size);
-    print2D(b, dim_size, world_size);
     for(int total_iter = 0; total_iter < world_size; total_iter ++){
       for (int current_row = 0; current_row < dim_size/world_size; current_row++){
         for(int current_col = 0; current_col < dim_size/world_size; current_col++){
-          printf("A row: %d, B col: %d, Iter: %d\n", current_row, current_col, total_iter);
+          // printf("A row: %d, B col: %d, Iter: %d\n", current_row, current_col, total_iter);
           for(int i = 0; i < dim_size; i ++){//for each value in the row
             if(i == 0){
               result[current_row * dim_size + (current_col ) + total_iter * dim_size /world_size] = a[current_row * dim_size + i] * b[i + current_col * dim_size];
             }
             else result[current_row * dim_size + (current_col )  + total_iter* dim_size /world_size] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
-            if(!debug_perf){
+            if(!debug_perf && world_rank == 0){
               printf("a = %f, b = %f a[%d] * b[%d] = %f. result[%d] is now %f\n",
                 a[current_row * dim_size + i],
                 b[i + current_col * dim_size],
@@ -37,14 +35,6 @@ void mm(double *result, double *a, double *b, int dim_size, int world_size, int 
                 current_row * dim_size + (current_col )  + total_iter * dim_size/world_size,
                 result[current_row * dim_size + (current_col ) + total_iter * dim_size/world_size]
               );
-
-              // printf("a[%d] * b[%d]. result[%d].\n", 
-              //   current_row * dim_size + i, 
-              //   i + current_col * dim_size,
-              //   a[current_row * dim_size + i] * b[i + current_col * dim_size],
-              //   current_row * dim_size + (current_col ) * dim_size/world_size + total_iter,
-              //   result[current_row * dim_size + (current_col ) * dim_size/world_size + total_iter]
-              // );
             }
           }
         }
@@ -52,10 +42,25 @@ void mm(double *result, double *a, double *b, int dim_size, int world_size, int 
       int recv_loc = world_rank == 0 ? world_size - 1 : world_rank - 1;
       int send_loc = (world_rank + 1) % world_size;
       if(total_iter != dim_size/world_size - 1 || debug_perf) {
+        if(world_rank == 0){
+          printf("BEGIN\na: ");
+          print2D(a, dim_size, world_size);
+          printf("b old: ");
+          print2D(b, dim_size, world_size);
+          printf("res new: ");
+          print2D(result, dim_size, world_size);
+        }
         MPI_Sendrecv_replace(b, dim_size/world_size * dim_size, MPI_DOUBLE,
                           send_loc, 0, recv_loc, 0,
                           MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        // MPI_Barrier(MPI_COMM_WORLD);
+        if(world_rank == 0){
+          printf("b new: ");
+          print2D(b, dim_size, world_size);
+          printf("END");
+        }
       }
+      
       /*
       int MPI_Sendrecv_replace(void *buf, int count, MPI_Datatype datatype, 
                        int dest, int sendtag, int source, int recvtag,
@@ -87,6 +92,17 @@ void printColMajor(double *result, int dim_size) {
 }
 
 int main(int argc, char *argv[]) {
+  
+
+  MPI_Init(&argc, &argv);
+  int world_size;
+  int world_rank;
+  int name_len;
+  char processor_name[MPI_MAX_PROCESSOR_NAME];
+  MPI_Comm_size(MPI_COMM_WORLD, &world_size); 
+  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank); 
+  MPI_Get_processor_name(processor_name, &name_len); 
+
   double **r;
   double **result;
   int i;
@@ -97,46 +113,47 @@ int main(int argc, char *argv[]) {
     printf("usage: debug_perf test_set matrix_dimension_size\n");
     exit(1);
   }
-
-  MPI_Init(&argc, &argv);
-  int world_size;
-  int world_rank;
-  int name_len;
-  char processor_name[MPI_MAX_PROCESSOR_NAME];
-  MPI_Comm_size(MPI_COMM_WORLD, &world_size); 
-  MPI_Comm_rank(MPI_COMM_WORLD, &world_rank); 
-  MPI_Get_processor_name(processor_name, &name_len); 
-  printf("worldsize: %d\n", world_size);
-
+  // printf("Hello from processor %s, rank %d out of %d processors\n",
+  //           processor_name, world_rank, world_size);
+  // fflush(stdout);
   int debug_perf = atoi(argv[1]);
   int test_set = atoi(argv[2]);
   matrix_dimension_size = atoi(argv[3]);
-  num_arg_matrices = init_gen_sub_matrix(test_set);
+  num_arg_matrices =  init_gen_sub_matrix(test_set);
   
-  // allocate arrays
+  // // allocate arrays
+  //   double *gen_sub_matrix(int pid,        // the process id of the job calling.  This should be a number between 0 and num processes - 1
+	// 	       int test_set,   // the test set command line argument
+	// 	       int matrix_num, // the matrix number [0, num_arg_matrices - 1] 
+	// 	       double *result, // a pointer to storage for the flattened array of the requested sub matrix
+	// 	       int x_lo,       // the starting x value of the requested sub matrix
+	// 	       int x_hi,       // the ending x value of the requested sub matrix
+	// 	       int x_stride,   // the stride in the x dimension
+	// 	       int y_lo,       // the starting y value of the requested sub matrix
+	// 	       int y_hi,       // the ending y value of the requested sub matrix
+	// 	       int y_stride,   // the stride in the y dimension
+	// 	       int row_major_p)// whether the returned sub matrix is in row_major or column_major order
+  // for (i = 0; i < num_arg_matrices; ++i) {
+
   r = (double **)my_malloc(sizeof(double *) * num_arg_matrices);
   result = (double **)my_malloc(sizeof(double *) * 2);
   result[0] = (double *)my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size / world_size);
   result[1] = (double *)my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size / world_size);
   for (int i = 0; i < num_arg_matrices; ++i) {
     r[i] = (double *)my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size/world_size);
-    if(i == 0){
-        if (gen_sub_matrix(world_rank, test_set, i, r[i], 0, matrix_dimension_size - 1, 1, world_rank, world_rank+matrix_dimension_size/world_size - 1, 1, 0) == NULL) {
+    if(i != 0){
+        if (gen_sub_matrix(world_rank, test_set, i, r[i], 0, matrix_dimension_size - 1, 1, world_rank * matrix_dimension_size/world_size , world_rank * matrix_dimension_size/world_size+matrix_dimension_size/world_size - 1, 1, 1) == NULL) {
         printf("inconsistency in gen_sub_matrix\n");
         exit(1);
       }
     }
     else{
-      if (gen_sub_matrix(world_rank, test_set, i, r[i], world_rank, world_rank + matrix_dimension_size/world_size - 1, 1, 0, matrix_dimension_size - 1, 1, 1) == NULL) {
+      if (gen_sub_matrix(world_rank, test_set, i, r[i], world_rank* matrix_dimension_size/world_size , world_rank* matrix_dimension_size/world_size + matrix_dimension_size/world_size - 1, 1, 0, matrix_dimension_size - 1, 1, 0) == NULL) {
         printf("inconsistency in gen_sub_matrix\n");
         exit(1);
       }
     }
   }  
-
-
-  // perform matrix multiplies
-  // void mm(double *result, double *a, double *b, int dim_size, int world_size, int world_rank, int debug_perf) {
 
   int n = 0;
    
@@ -167,7 +184,7 @@ int main(int argc, char *argv[]) {
       matrix_dimension_size*matrix_dimension_size/world_size,
       MPI_DOUBLE,
       fin_result,
-      matrix_dimension_size*matrix_dimension_size,
+      matrix_dimension_size*matrix_dimension_size/world_size,
       MPI_DOUBLE,
       0,
       MPI_COMM_WORLD);
@@ -177,6 +194,7 @@ int main(int argc, char *argv[]) {
     if (debug_perf == 0) {
       
       //print each of the sub matrices
+
       for (int i = 0; i < num_arg_matrices; ++i) {
         if(i == 0){
           printf("argument matrix %d\n", i);
