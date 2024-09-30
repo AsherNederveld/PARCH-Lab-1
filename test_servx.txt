@@ -1,0 +1,6 @@
+make[1]: Entering directory '/home1/09753/lmason/PARCH-Lab-1'
+ibrun -n 101 ./test_mm 1 0 505
+TACC:  Starting up job 1981952 
+ERROR: -n option requested 101 hosts, only 100 are available!
+ERROR: Number of hosts (requested through -n) plus offset (via -o) exceeds the total number of slots available.
+make[1]: Leaving directory '/home1/09753/lmason/PARCH-Lab-1'

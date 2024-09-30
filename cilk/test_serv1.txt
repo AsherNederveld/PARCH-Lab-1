@@ -1,0 +1,11 @@
+make[1]: Entering directory '/home1/09753/lmason/PARCH-Lab-1/cilk'
+export CILK_NWORKERS=4
+ibrun -n 4 ./test_mm 1 0 4
+TACC:  Starting up job 1981952 
+TACC:  Starting parallel tasks... 
+83.333333
+83.333333
+83.333333
+83.333333
+TACC:  Shutdown complete. Exiting. 
+make[1]: Leaving directory '/home1/09753/lmason/PARCH-Lab-1/cilk'

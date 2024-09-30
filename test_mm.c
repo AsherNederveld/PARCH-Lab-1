@@ -3,6 +3,8 @@
 #include "gen_matrix.h"
 #include "my_malloc.h"
 #include <mpi.h>
+#include <time.h>
+
 
 void print2D(double* a, int dim_size, int world_size){
   // printf("Begin Dump: \n");
@@ -77,7 +79,7 @@ void print_matrix(double *result, int dim_size) {
   int x, y;
   for (y = 0; y < dim_size; ++y) {
     for (x = 0; x < dim_size; ++x) {
-      printf("%f ", result[y * dim_size + x]);
+      printf("%f ", result[x * dim_size + y]);
     }
     printf("\n");
   }
@@ -88,7 +90,7 @@ void printColMajor(double *result, int dim_size) {
   int x,y;
   for(y = 0; y < dim_size; y++){
     for(x = 0; x < dim_size; x++){
-        printf("%f ", result[y + x * dim_size ]);
+        printf("%f ", result[x + y * dim_size ]);
     }
     printf("\n");
   }
@@ -97,6 +99,7 @@ void printColMajor(double *result, int dim_size) {
 
 int main(int argc, char *argv[]) {
   MPI_Init(&argc, &argv);
+  clock_t start_time = clock();
   int world_size;
   int world_rank;
   int name_len;
@@ -233,7 +236,14 @@ int main(int argc, char *argv[]) {
       double sum = glo_sum;
       printf("%f\n", sum);
     }
+    clock_t end_time = clock();
+
+    // Calculate elapsed time in seconds
+    double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    
+    printf("Elapsed time: %f seconds\n", elapsed_time);
 }
+
 MPI_Finalize();
 }
 
