@@ -25,23 +25,24 @@ void mm(double *result, double *a, double *b, int dim_size, int world_size, int 
               result[current_row * dim_size + (current_col ) + total_iter * dim_size /world_size] = a[current_row * dim_size + i] * b[i + current_col * dim_size];
             }
             else result[current_row * dim_size + (current_col )  + total_iter* dim_size /world_size] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
-            if(!debug_perf && world_rank == 0){
-              printf("a = %f, b = %f a[%d] * b[%d] = %f. result[%d] is now %f\n",
-                a[current_row * dim_size + i],
-                b[i + current_col * dim_size],
-                current_row * dim_size + i, 
-                i + current_col * dim_size,
-                a[current_row * dim_size + i] * b[i + current_col * dim_size],
-                current_row * dim_size + (current_col )  + total_iter * dim_size/world_size,
-                result[current_row * dim_size + (current_col ) + total_iter * dim_size/world_size]
-              );
-            }
+            // if(!debug_perf && world_rank == 0){
+            //   printf("a = %f, b = %f a[%d] * b[%d] = %f. result[%d] is now %f\n",
+            //     a[current_row * dim_size + i],
+            //     b[i + current_col * dim_size],
+            //     current_row * dim_size + i, 
+            //     i + current_col * dim_size,
+            //     a[current_row * dim_size + i] * b[i + current_col * dim_size],
+            //     current_row * dim_size + (current_col )  + total_iter * dim_size/world_size,
+            //     result[current_row * dim_size + (current_col ) + total_iter * dim_size/world_size]
+            //   );
+            // }
           }
         }
       }
       int recv_loc = world_rank == 0 ? world_size - 1 : world_rank - 1;
       int send_loc = (world_rank + 1) % world_size;
-      if(total_iter != dim_size/world_size - 1 || debug_perf) {
+      if(total_iter != dim_size/world_size - 1 || !debug_perf) {
+        /*
         if(world_rank == 0){
           printf("BEGIN\na: ");
           print2D(a, dim_size, world_size);
@@ -50,15 +51,18 @@ void mm(double *result, double *a, double *b, int dim_size, int world_size, int 
           printf("res new: ");
           print2D(result, dim_size, world_size);
         }
+        */
         MPI_Sendrecv_replace(b, dim_size/world_size * dim_size, MPI_DOUBLE,
                           send_loc, 0, recv_loc, 0,
                           MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         // MPI_Barrier(MPI_COMM_WORLD);
+        /*
         if(world_rank == 0){
           printf("b new: ");
           print2D(b, dim_size, world_size);
           printf("END");
         }
+        */
       }
       
       /*
@@ -92,8 +96,6 @@ void printColMajor(double *result, int dim_size) {
 }
 
 int main(int argc, char *argv[]) {
-  
-
   MPI_Init(&argc, &argv);
   int world_size;
   int world_rank;
@@ -102,7 +104,7 @@ int main(int argc, char *argv[]) {
   MPI_Comm_size(MPI_COMM_WORLD, &world_size); 
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank); 
   MPI_Get_processor_name(processor_name, &name_len); 
-
+  double ** arg_arrs;
   double **r;
   double **result;
   int i;
@@ -178,7 +180,24 @@ int main(int argc, char *argv[]) {
         MPI_COMM_WORLD);
   
   if (debug_perf == 0) {
-    fin_result = (double*) malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size);
+    // if (world_rank == 0){
+      fin_result = (double*) malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size);
+      arg_arrs = (double**) malloc(sizeof(double*)*num_arg_matrices);
+      for(int i = 0; i < num_arg_matrices; i ++){
+        arg_arrs[i] = (double*) malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size);
+      }
+    // }
+    for(int i = 0; i < num_arg_matrices; i++){
+      MPI_Gather(
+      r[i],
+      matrix_dimension_size*matrix_dimension_size/world_size,
+      MPI_DOUBLE,
+      arg_arrs[i],
+      matrix_dimension_size*matrix_dimension_size/world_size,
+      MPI_DOUBLE,
+      0,
+      MPI_COMM_WORLD);
+    }
     MPI_Gather(
       result[n],
       matrix_dimension_size*matrix_dimension_size/world_size,
@@ -188,6 +207,8 @@ int main(int argc, char *argv[]) {
       MPI_DOUBLE,
       0,
       MPI_COMM_WORLD);
+
+      
   }
 
   if(world_rank == 0) {
@@ -198,11 +219,11 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < num_arg_matrices; ++i) {
         if(i == 0){
           printf("argument matrix %d\n", i);
-          print_matrix(r[i], matrix_dimension_size);
+          print_matrix(arg_arrs[i], matrix_dimension_size);
         }
         else{
           printf("argument matrix %d\n", i);
-          printColMajor(r[i], matrix_dimension_size);
+          printColMajor(arg_arrs[i], matrix_dimension_size);
         }
       }
       printf("result matrix\n");

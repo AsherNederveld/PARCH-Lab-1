@@ -6,11 +6,11 @@ enter_idev:
 	idev -N 2 -n 100
 
 run_debug:
-	ibrun -n 2 ./test_mm 0 0 4
+	ibrun -n 4 ./test_mm 0 0 8
 	
 
 run_performance:
-	./test_mm 1 0 2
+	./test_mm 50 0 800
 
 clean:
 	rm *~; rm *.exe
