@@ -1,25 +1,23 @@
 // row major
-void mm(double *result, double *a, double *b, int dim_size, int world_size, int world_rank) {
+void mm(double *result, double *a, double *b, int dim_size, int world_size, int world_rank, int debug_perf) {
   //TODO:    
-  double* recv_buffer = (double*) my_malloc(sizeof(double) * dim_size/world_size * dim_size);
-    for(int total_iter = 0; total_iter < dim_size/world_size; total_iter){
+  // double* recv_buffer = (double*) my_malloc(sizeof(double) * dim_size/world_size * dim_size);
+    for(int total_iter = 0; total_iter < dim_size/world_size; total_iter ++){
       for (current_row = 0; current_row < dim_size/world_size; current_row++){
         for(current_col = 0; current_col < dim_size/world_size; current_col++){
           for(i = 0; i < dim_size; i ++){//for each value in the row
-            result[current_row * dim_size + (current_col + total_iter) * dim_size/world_size] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
+            result[current_row * dim_size + (current_col ) * dim_size/world_size + total_iter] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
           }
         }
       }
-    recv_loc = world_rank == 0 ? world_size - 1 : world_rank - 1;
-    send_loc = (world_rank + 1) % world_size;
-    int MPI_Sendrecv_replace(b, dim_size/world_size * dim_size, MPI_DOUBLE, send_loc,
-                       recv_loc, int sendtag, int source, int recvtag,
-                       MPI_Comm comm, MPI_Status *status);
-    
+      recv_loc = world_rank == 0 ? world_size - 1 : world_rank - 1;
+      send_loc = (world_rank + 1) % world_size;
+      if(total_iter != dim_size/world_size - 1 || debug_perf) {
+        MPI_Sendrecv_replace(b, dim_size/world_size * dim_size, MPI_DOUBLE, send_loc,
+                          recv_loc, 0, world_rank, 0,
+                          MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      }
     }
-  
-
-
   }
 
 void print_matrix(double *result, int dim_size) {
@@ -67,6 +65,86 @@ int main(int argc, char *argv[]) {
   result[1] = (double *)my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size / world_size);
 
 
+
+
+  for (i = 0; i < num_arg_matrices; ++i) {
+    r[i] = (double *)my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size/world_size);
+    if(i == 0){
+      if (gen_sub_matrix(world_rank, test_set, i, r[i], 0, matrix_dimension_size - 1, 1, world_rank, world_rank+matrix_dimension_size/world_size - 1, 1, 0) == NULL) {
+      printf("inconsistency in gen_sub_matrix\n");
+      exit(1);
+    }
+    else{
+      if (gen_sub_matrix(world_rank, test_set, i, r[i], world_rank, world_rank + matrix_dimension_size/world_size - 1, 1, 0, matrix_dimension_size - 1, 1, 1) == NULL) {
+        printf("inconsistency in gen_sub_matrix\n");
+        exit(1);
+      }
+    }
+  }  
+
+
+  // perform matrix multiplies
+  // void mm(double *result, double *a, double *b, int dim_size, int world_size, int world_rank, int debug_perf) {
+
+  int n = 0;
+   
+  mm(result[0], r[0], r[1], matrix_dimension_size, world_size, world_rank, debug_perf);
+  for (i = 2; i < num_arg_matrices; ++i) {
+    mm(result[n ^ 0x1], result[n], r[i], matrix_dimension_size,  world_size, world_rank, debug_perf);
+    n = n ^ 0x1;
+  }
+  double glo_sum = 0.0;
+  double loc_sum = 0.0;
+  for(int i = 0; i < dim_size/world_size * dim_size; i++){
+    loc_sum += result[n][i];
+  }
+
+  MPI_Reduce(
+        &loc_sum,
+        &glo_sum,
+        1,
+        MPI_DOUBLE,
+        MPI_SUM,
+        0,
+        MPI_COMM_WORLD);
+  
+  if (debug_perf == 0) {
+    double* fin_result = (double*) malloc(sizeof(double) * dim_size * dim_size);
+    MPI_Gather(
+      result[n],
+      dim_size*dim_size/world_size,
+      MPI_DOUBLE,
+      fin_result,
+      dim_size*dim_size,
+      MPI_DOUBLE,
+      0,
+      MPI_COMM_WORLD);
+  }
+
+  if(world_rank == 0) {
+    if (debug_perf == 0) {
+      
+      // print each of the sub matrices
+      for (i = 0; i < num_arg_matrices; ++i) {
+        printf("argument matrix %d\n", i);
+        print_matrix(r[i], matrix_dimension_size);
+      }
+      printf("result matrix\n");
+      print_matrix(fin_result[n], matrix_dimension_size);
+    } 
+    else {
+      double sum = glo_sum;
+      printf("%f\n", sum);
+    }
+}
+MPI_Finalize();
+}
+
+
+
+
+
+
   //TODO:
 
   /*
@@ -92,51 +170,3 @@ int main(int argc, char *argv[]) {
 {
   */
   // get sub matrices
-
-
-  for (i = 0; i < num_arg_matrices; ++i) {
-    r[i] = (double *)my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size/world_size);
-    if(i == 0){
-      if (gen_sub_matrix(world_rank, test_set, i, r[i], 0, matrix_dimension_size - 1, 1, world_rank, world_rank, world_size, 0) == NULL) {
-      printf("inconsistency in gen_sub_matrix\n");
-      exit(1);
-    }
-    else{
-      if (gen_sub_matrix(world_rank, test_set, i, r[i], world_rank, world_rank, world_size, 0, matrix_dimension_size - 1, 1, 1) == NULL) {
-        printf("inconsistency in gen_sub_matrix\n");
-        exit(1);
-      }
-    }
-    
-  }  
-
-
-  // perform matrix multiplies
-  int n = 0;
-   
-  mm(result[0], r[0], r[1], matrix_dimension_size);
-  for (i = 2; i < num_arg_matrices; ++i) {
-    mm(result[n ^ 0x1], result[n], r[i], matrix_dimension_size);
-    n = n ^ 0x1;
-  }
-
-  if (debug_perf == 0) {
-    // print each of the sub matrices
-    for (i = 0; i < num_arg_matrices; ++i) {
-      printf("argument matrix %d\n", i);
-      print_matrix(r[i], matrix_dimension_size);
-    }
-    printf("result matrix\n");
-    print_matrix(result[n], matrix_dimension_size);
-  } else {
-    double sum = 0.0;
-
-    for (i = 0; i < matrix_dimension_size * matrix_dimension_size; ++i) {
-      sum += result[n][i];
-    }
-    printf("%f\n", sum);
-  }
-
-MPI_Finalize();
-}
-
