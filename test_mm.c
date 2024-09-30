@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
   double **result;
   int i;
   int num_arg_matrices;
-
+  double* fin_result;
 
   if (argc != 4) {
     printf("usage: debug_perf test_set matrix_dimension_size\n");
@@ -95,7 +95,6 @@ int main(int argc, char *argv[]) {
   MPI_Comm_size(MPI_COMM_WORLD, &world_size); 
   MPI_Comm_rank(MPI_COMM_WORLD, &world_rank); 
   MPI_Get_processor_name(processor_name, &name_len); 
-  double* fin_result;
   printf("worldsize: %d\n", world_size);
 
   int debug_perf = atoi(argv[1]);
@@ -117,7 +116,7 @@ int main(int argc, char *argv[]) {
       }
     }
     else{
-      if (gen_sub_matrix(world_rank, test_set, i, r[i], world_rank, world_rank + matrix_dimension_size/world_size - 1, 1, 0, matrix_dimension_size - 1, 1, 0) == NULL) {
+      if (gen_sub_matrix(world_rank, test_set, i, r[i], world_rank, world_rank + matrix_dimension_size/world_size - 1, 1, 0, matrix_dimension_size - 1, 1, 1) == NULL) {
         printf("inconsistency in gen_sub_matrix\n");
         exit(1);
       }
@@ -151,7 +150,7 @@ int main(int argc, char *argv[]) {
         MPI_COMM_WORLD);
   
   if (debug_perf == 0) {
-    double* fin_result = (double*) malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size);
+    fin_result = (double*) malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size);
     MPI_Gather(
       result[n],
       matrix_dimension_size*matrix_dimension_size/world_size,
