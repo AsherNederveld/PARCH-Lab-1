@@ -75,6 +75,17 @@ void print_matrix(double *result, int dim_size) {
   printf("\n");
 }
 
+void printColMajor(double *result, int dim_size) {
+  int x,y;
+  for(y = 0; y < dim_size; y++){
+    for(x = 0; x < dim_size; x++){
+        printf("%f ", result[y + x * dim_size ]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
 int main(int argc, char *argv[]) {
   double **r;
   double **result;
@@ -167,8 +178,14 @@ int main(int argc, char *argv[]) {
       
       //print each of the sub matrices
       for (int i = 0; i < num_arg_matrices; ++i) {
-        printf("argument matrix %d\n", i);
-        print_matrix(r[i], matrix_dimension_size);
+        if(i == 0){
+          printf("argument matrix %d\n", i);
+          print_matrix(r[i], matrix_dimension_size);
+        }
+        else{
+          printf("argument matrix %d\n", i);
+          printColMajor(r[i], matrix_dimension_size);
+        }
       }
       printf("result matrix\n");
       print_matrix(fin_result, matrix_dimension_size);
