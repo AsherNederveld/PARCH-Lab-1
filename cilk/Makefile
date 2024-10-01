@@ -3,15 +3,14 @@ test_mm: test_mm.c gen_matrix.c my_malloc.c gen_matrix.h my_malloc.h
 	# gcc -g -DDEBUG test_mm.c gen_matrix.c my_malloc.c -o test_mm
 
 enter_idev:
-	idev -N 2 -n 100
+	idev -N 2 -n 128
 
 run_debug:
 	export CILK_NWORKERS=8
 	./test_mm 0 0 8
 
 run_performance:
-	export CILK_NWORKERS=4
-	ibrun -n 4 ./test_mm 1 0 4
+	CILK_NWORKERS=128 time ./test_mm 1 0 2048
 
 clean:
 	rm *~; rm *.exe

@@ -18,11 +18,36 @@ void result_from_row(double* result, int row, double* a, double* b, int dim_size
 
 // row major
 void mm(double *result, double *a, double *b,  int dim_size) {
+  int ctr = 0;
   for (int row = 0; row < dim_size; ++row) {
+    // ctr++
     cilk_spawn result_from_row(result, row, a, b, dim_size);
+    // if(ctr == __cilkrts_get_nworkers())
+    //   cilk_sync;
+    //   ctr = 0
   }
   cilk_sync;
 }
+
+// void result_from_cell(double* result, int row, int col, double* a, double* b, int dim_size){
+//   int k, x;
+//   double r = 0.0;
+//   for (int k = 0; k < dim_size; ++k) {
+//     r += a[row * dim_size + k] *  b[k * dim_size + col];
+//   }
+//   result[row * dim_size + col] = r;
+//   return;
+// }
+
+// // row major
+// void mm(double *result, double *a, double *b,  int dim_size) {
+//   for (int row = 0; row < dim_size; ++row) {
+//     for (int col = 0; col < dim_size; ++col) {
+//       result_from_cell(result, row, col, a, b, dim_size);
+//     }
+//   }
+  
+// }
 
 void print_matrix(double *result, int dim_size) {
   int x, y;
@@ -41,10 +66,13 @@ int main(int argc, char *argv[]) {
   int i;
   int num_arg_matrices;
 
+  //printf("clock %f: ", (double)start_time);
+
   if (argc != 4) {
     printf("usage: debug_perf test_set matrix_dimension_size\n");
     exit(1);
   }
+  printf("workers here: %d\n", __cilkrts_get_nworkers());
   int debug_perf = atoi(argv[1]);
   int test_set = atoi(argv[2]);
   matrix_dimension_size = atoi(argv[3]);
@@ -89,6 +117,9 @@ int main(int argc, char *argv[]) {
       sum += result[n][i];
     }
     printf("%f\n", sum);
+
+    
   }
+
 }
 
