@@ -1,5 +1,0 @@
-make[1]: Entering directory '/home1/09753/lmason/PARCH-Lab-1'
-./test_mm 50 0 800
-MPI startup(): PMI server not found. Please set I_MPI_PMI_LIBRARY variable if it is not a singleton case.
-1861511763.888409
-make[1]: Leaving directory '/home1/09753/lmason/PARCH-Lab-1'

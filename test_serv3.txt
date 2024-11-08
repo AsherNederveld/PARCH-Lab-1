@@ -1,6 +1,0 @@
-ibrun -n 128 ./test_mm 1 0 2048
-TACC:  Starting up job 1981958 
-TACC:  Starting parallel tasks... 
-21237275160.708332
-Elapsed time: 0.314157 seconds
-TACC:  Shutdown complete. Exiting. 

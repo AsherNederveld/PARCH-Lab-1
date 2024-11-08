@@ -3,7 +3,6 @@
 #include "gen_matrix.h"
 #include "my_malloc.h"
 #include <mpi.h>
-#include <time.h>
 
 
 void print2D(double* a, int dim_size, int world_size){
@@ -16,62 +15,24 @@ void print2D(double* a, int dim_size, int world_size){
 
 // row major
 void mm(double *result, double *a, double *b, int dim_size, int world_size, int world_rank, int debug_perf) {
-  //TODO:    
-  // double* recv_buffer = (double*) my_malloc(sizeof(double) * dim_size/world_size * dim_size);
     for(int total_iter = 0; total_iter < world_size; total_iter ++){
       for (int current_row = 0; current_row < dim_size/world_size; current_row++){
         for(int current_col = 0; current_col < dim_size/world_size; current_col++){
-          // printf("A row: %d, B col: %d, Iter: %d\n", current_row, current_col, total_iter);
           for(int i = 0; i < dim_size; i ++){//for each value in the row
             if(i == 0){
               result[current_row * dim_size + (current_col ) + total_iter * dim_size /world_size] = a[current_row * dim_size + i] * b[i + current_col * dim_size];
             }
             else result[current_row * dim_size + (current_col )  + total_iter* dim_size /world_size] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
-            // if(!debug_perf && world_rank == 0){
-            //   printf("a = %f, b = %f a[%d] * b[%d] = %f. result[%d] is now %f\n",
-            //     a[current_row * dim_size + i],
-            //     b[i + current_col * dim_size],
-            //     current_row * dim_size + i, 
-            //     i + current_col * dim_size,
-            //     a[current_row * dim_size + i] * b[i + current_col * dim_size],
-            //     current_row * dim_size + (current_col )  + total_iter * dim_size/world_size,
-            //     result[current_row * dim_size + (current_col ) + total_iter * dim_size/world_size]
-            //   );
-            // }
           }
         }
       }
       int recv_loc = world_rank == 0 ? world_size - 1 : world_rank - 1;
       int send_loc = (world_rank + 1) % world_size;
-      if(total_iter != dim_size/world_size - 1 || !debug_perf) {
-        /*
-        if(world_rank == 0){
-          printf("BEGIN\na: ");
-          print2D(a, dim_size, world_size);
-          printf("b old: ");
-          print2D(b, dim_size, world_size);
-          printf("res new: ");
-          print2D(result, dim_size, world_size);
-        }
-        */
+      if(total_iter != world_size - 1 || !debug_perf) {
         MPI_Sendrecv_replace(b, dim_size/world_size * dim_size, MPI_DOUBLE,
                           send_loc, 0, recv_loc, 0,
                           MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        // MPI_Barrier(MPI_COMM_WORLD);
-        /*
-        if(world_rank == 0){
-          printf("b new: ");
-          print2D(b, dim_size, world_size);
-          printf("END");
-        }
-        */
       }
-      
-      /*
-      int MPI_Sendrecv_replace(void *buf, int count, MPI_Datatype datatype, 
-                       int dest, int sendtag, int source, int recvtag,
-                       MPI_Comm comm, MPI_Status *status)
-                */
     }
   }
 
@@ -99,7 +60,6 @@ void printColMajor(double *result, int dim_size) {
 
 int main(int argc, char *argv[]) {
   MPI_Init(&argc, &argv);
-  clock_t start_time = clock();
   int world_size;
   int world_rank;
   int name_len;
@@ -167,15 +127,17 @@ int main(int argc, char *argv[]) {
     mm(result[n ^ 0x1], result[n], r[i], matrix_dimension_size,  world_size, world_rank, debug_perf);
     n = n ^ 0x1;
   }
-  double glo_sum = 0.0;
-  double loc_sum = 0.0;
+  double* glo_sum = (double*)my_malloc(sizeof(double));
+  double* loc_sum = (double*)my_malloc(sizeof(double));
+  *glo_sum = 0.0;
+  *loc_sum = 0.0;
   for(int i = 0; i < matrix_dimension_size/world_size * matrix_dimension_size; i++){
-    loc_sum += result[n][i];
+    *loc_sum += result[n][i];
   }
 
   MPI_Reduce(
-        &loc_sum,
-        &glo_sum,
+        loc_sum,
+        glo_sum,
         1,
         MPI_DOUBLE,
         MPI_SUM,
@@ -184,10 +146,10 @@ int main(int argc, char *argv[]) {
   
   if (debug_perf == 0) {
     // if (world_rank == 0){
-      fin_result = (double*) malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size);
-      arg_arrs = (double**) malloc(sizeof(double*)*num_arg_matrices);
+      fin_result = (double*) my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size);
+      arg_arrs = (double**) my_malloc(sizeof(double*)*num_arg_matrices);
       for(int i = 0; i < num_arg_matrices; i ++){
-        arg_arrs[i] = (double*) malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size);
+        arg_arrs[i] = (double*) my_malloc(sizeof(double) * matrix_dimension_size * matrix_dimension_size);
       }
     // }
     for(int i = 0; i < num_arg_matrices; i++){
@@ -233,15 +195,9 @@ int main(int argc, char *argv[]) {
       print_matrix(fin_result, matrix_dimension_size);
     } 
     else {
-      double sum = glo_sum;
+      double sum = *glo_sum;
       printf("%f\n", sum);
     }
-    clock_t end_time = clock();
-
-    // Calculate elapsed time in seconds
-    double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
-    
-    printf("Elapsed time: %f seconds\n", elapsed_time);
 }
 
 MPI_Finalize();

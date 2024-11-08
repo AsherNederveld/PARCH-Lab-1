@@ -1,8 +1,0 @@
-make[1]: Entering directory '/home1/09753/lmason/PARCH-Lab-1'
-ibrun -n 64 ./test_mm 1 0 1024
-TACC:  Starting up job 1981952 
-TACC:  Starting parallel tasks... 
-2377492916.614353
-Elapsed time: 0.085501 seconds
-TACC:  Shutdown complete. Exiting. 
-make[1]: Leaving directory '/home1/09753/lmason/PARCH-Lab-1'
