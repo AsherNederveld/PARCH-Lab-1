@@ -24,10 +24,11 @@ void mm(double *result, double *a, double *b, int dim_size, int world_size, int 
       for (int current_row = 0; current_row < dim_size/world_size; current_row++){
         for(int current_col = 0; current_col < dim_size/world_size; current_col++){
           for(int i = 0; i < dim_size; i ++){//for each value in the row
+            int result_index = (current_row * dim_size + (current_col ) + (((total_iter+world_rank) % world_size) * dim_size /world_size));
             if(i == 0){
-              result[current_row * dim_size + (current_col ) + (total_iter * dim_size /world_size)] = a[current_row * dim_size + i] * b[i + current_col * dim_size];
+              result[result_index] = a[current_row * dim_size + i] * b[i + current_col * dim_size];
             }
-            else result[current_row * dim_size + (current_col )  + (total_iter* dim_size /world_size)] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
+            else result[result_index] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
           }
           /*
           int col_idx = current_col + (total_iter * dim_size/world_size);
@@ -43,7 +44,7 @@ void mm(double *result, double *a, double *b, int dim_size, int world_size, int 
         }
       }
       int recv_loc = world_rank == 0 ? world_size - 1 : world_rank - 1;
-      int send_loc = (world_rank + 1) % world_size;
+      int send_loc = world_rank == world_size -1 ? 0 : (world_rank + 1);
       if(total_iter != world_size - 1 || !debug_perf) {
         MPI_Sendrecv_replace(b, dim_size/world_size * dim_size, MPI_DOUBLE,
                           recv_loc, 0, send_loc, 0,
@@ -56,7 +57,7 @@ void print_matrix(double *result, int dim_size) {
   int x, y;
   for (y = 0; y < dim_size; ++y) {
     for (x = 0; x < dim_size; ++x) {
-      printf("%f ", result[x * dim_size + y]);
+      printf("%f ", result[x + y* dim_size ]);
     }
     printf("\n");
   }
@@ -229,7 +230,7 @@ int main(int argc, char *argv[]) {
       MPI_COMM_WORLD);
     }
     MPI_Gather(
-      result[n],
+      result[1],
       matrix_dimension_size*matrix_dimension_size/world_size,
       MPI_DOUBLE,
       fin_result,
