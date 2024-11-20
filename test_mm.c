@@ -3,6 +3,8 @@
 #include "gen_matrix.h"
 #include "my_malloc.h"
 #include <mpi.h>
+#include <unistd.h> // For sleep
+
 
 
 void print2D(double* a, int dim_size, int world_size){
@@ -15,28 +17,53 @@ void print2D(double* a, int dim_size, int world_size){
 
 // row major
 void mm(double *result, double *a, double *b, int dim_size, int world_size, int world_rank, int debug_perf) {
+    for(int i = 0; i < (dim_size/world_size) * dim_size; i++) {
+        result[i] = 0.0;
+    }
     for(int total_iter = 0; total_iter < world_size; total_iter ++){
       for (int current_row = 0; current_row < dim_size/world_size; current_row++){
         for(int current_col = 0; current_col < dim_size/world_size; current_col++){
           for(int i = 0; i < dim_size; i ++){//for each value in the row
             if(i == 0){
-              result[current_row * dim_size + (current_col ) + total_iter * dim_size /world_size] = a[current_row * dim_size + i] * b[i + current_col * dim_size];
+              result[current_row * dim_size + (current_col ) + (total_iter * dim_size /world_size)] = a[current_row * dim_size + i] * b[i + current_col * dim_size];
             }
-            else result[current_row * dim_size + (current_col )  + total_iter* dim_size /world_size] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
+            else result[current_row * dim_size + (current_col )  + (total_iter* dim_size /world_size)] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
           }
+          /*
+          int col_idx = current_col + (total_iter * dim_size/world_size);
+          int result_idx = current_row * dim_size + col_idx;
+          
+          if(i == 0) {
+              result[result_idx] = a[current_row * dim_size + i] * b[i + current_col * dim_size];
+          }
+          else {
+              result[result_idx] += a[current_row * dim_size + i] * b[i + current_col * dim_size];
+          }
+                  }*/
         }
       }
       int recv_loc = world_rank == 0 ? world_size - 1 : world_rank - 1;
       int send_loc = (world_rank + 1) % world_size;
       if(total_iter != world_size - 1 || !debug_perf) {
         MPI_Sendrecv_replace(b, dim_size/world_size * dim_size, MPI_DOUBLE,
-                          send_loc, 0, recv_loc, 0,
+                          recv_loc, 0, send_loc, 0,
                           MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       }
     }
   }
 
 void print_matrix(double *result, int dim_size) {
+  int x, y;
+  for (y = 0; y < dim_size; ++y) {
+    for (x = 0; x < dim_size; ++x) {
+      printf("%f ", result[x * dim_size + y]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+}
+
+void print_matrix_frag(double *result, int dim_size) {
   int x, y;
   for (y = 0; y < dim_size; ++y) {
     for (x = 0; x < dim_size; ++x) {
@@ -78,9 +105,9 @@ int main(int argc, char *argv[]) {
     printf("usage: debug_perf test_set matrix_dimension_size\n");
     exit(1);
   }
-  // printf("Hello from processor %s, rank %d out of %d processors\n",
-  //           processor_name, world_rank, world_size);
-  // fflush(stdout);
+  printf("Hello from processor %s, rank %d out of %d processors\n",
+            processor_name, world_rank, world_size);
+  fflush(stdout);
   int debug_perf = atoi(argv[1]);
   int test_set = atoi(argv[2]);
   matrix_dimension_size = atoi(argv[3]);
@@ -123,8 +150,46 @@ int main(int argc, char *argv[]) {
   int n = 0;
    
   mm(result[0], r[0], r[1], matrix_dimension_size, world_size, world_rank, debug_perf);
+//     if(world_rank == 1){
+//  sleep(1) ;   }
+//     if(world_rank == 2){
+// sleep(2);    }
+//     if(world_rank == 3){
+// sleep(3) ;   }
+    
+//     for(int j =0; j < matrix_dimension_size * matrix_dimension_size / world_size; j++){
+//       if(j%16 == 0){
+//         printf("\n");
+//       }
+//       printf("%f ",result[0][j]);
+//     }
+//     printf("\n");
+    
   for (int i = 2; i < num_arg_matrices; ++i) {
     mm(result[n ^ 0x1], result[n], r[i], matrix_dimension_size,  world_size, world_rank, debug_perf);
+           
+
+    // if(world_rank == 0){
+    //   printf("\n Begin \n");
+    //   sleep(4);
+    // }
+    // if(world_rank == 1){
+    //     sleep(5) ;   
+    //     }
+    // if(world_rank == 2){
+    //   sleep(6);    
+    //   }
+    // if(world_rank == 3){
+    //   sleep(7) ;   
+    //   }
+    // for(int j =0; j < matrix_dimension_size * matrix_dimension_size / world_size; j++){
+    //   if(j%16 == 0){
+    //     printf("\n");
+    //   }
+    //   printf("%f ",result[n ^ 0x1][j]);
+    // }
+    // printf("\n");
+
     n = n ^ 0x1;
   }
   double* glo_sum = (double*)my_malloc(sizeof(double));
